@@ -1,0 +1,24 @@
+{
+  "num_documents": 100.0,
+  "num_tokens": 43529.0,
+  "utf8_bytes": 224345.0,
+  "num_chars": 223290.0,
+  "compression_ratio": 5.153920374922466,
+  "tokens_per_char": 0.19494379506471404,
+  "bytes_per_token": 5.153920374922466,
+  "entropies_bits_per_token": {
+    "H1": 9.015169806148954,
+    "H2": 4.5207408552200254,
+    "H3": 1.4074129166272773,
+    "H4": 0.31983786122560987,
+    "H5": 0.07548567139287533
+  },
+  "entropy_rates_bits_per_char": {
+    "H1": 1.7574514151634995,
+    "H2": 0.8812903788206927,
+    "H3": 0.27436641519041943,
+    "H4": 0.062350406472701736,
+    "H5": 0.014715463254335037
+  },
+  "tokenizer": "tokenizer_ckpts/huggingface_tokenizers_16k_c4_103/wordlevel.json"
+}

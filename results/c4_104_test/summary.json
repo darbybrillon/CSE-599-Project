@@ -1,0 +1,101 @@
+{
+  "test_corpus": "data/c4_104/test.jsonl",
+  "tokenizers": {
+    "bpe": {
+      "num_documents": 1000.0,
+      "num_tokens": 567718.0,
+      "utf8_bytes": 2516943.0,
+      "num_chars": 2504292.0,
+      "compression_ratio": 4.433438784748766,
+      "tokens_per_char": 0.22669800486524735,
+      "bytes_per_token": 4.433438784748766,
+      "entropies_bits_per_token": {
+        "H1": 10.489938644238043,
+        "H2": 6.032064494015789,
+        "H3": 1.9717341325491435,
+        "H4": 0.42825674724090496,
+        "H5": 0.10595515188628145
+      },
+      "entropy_rates_bits_per_char": {
+        "H1": 2.378048161807622,
+        "H2": 1.3674569860118773,
+        "H3": 0.4469881939736,
+        "H4": 0.09708495016959368,
+        "H5": 0.024019821537814255
+      },
+      "tokenizer": "tokenizer_ckpts/huggingface_tokenizers_16k_c4_104/bpe.json"
+    },
+    "unigram": {
+      "num_documents": 1000.0,
+      "num_tokens": 626006.0,
+      "utf8_bytes": 2516943.0,
+      "num_chars": 2504292.0,
+      "compression_ratio": 4.020637182391223,
+      "tokens_per_char": 0.249973245931385,
+      "bytes_per_token": 4.020637182391223,
+      "entropies_bits_per_token": {
+        "H1": 9.610472225616935,
+        "H2": 6.14366117334132,
+        "H3": 2.548655117498448,
+        "H4": 0.6612913538884769,
+        "H5": 0.1677010327881499
+      },
+      "entropy_rates_bits_per_char": {
+        "H1": 2.402360937170887,
+        "H2": 1.535750925402751,
+        "H3": 0.6370955924807225,
+        "H4": 0.1653051462378628,
+        "H5": 0.041920771512099456
+      },
+      "tokenizer": "tokenizer_ckpts/huggingface_tokenizers_16k_c4_104/unigram.json"
+    },
+    "wordlevel": {
+      "num_documents": 1000.0,
+      "num_tokens": 497884.0,
+      "utf8_bytes": 2516943.0,
+      "num_chars": 2504292.0,
+      "compression_ratio": 5.055279944726081,
+      "tokens_per_char": 0.1988122790792767,
+      "bytes_per_token": 5.055279944726081,
+      "entropies_bits_per_token": {
+        "H1": 9.498421503894619,
+        "H2": 5.964189769961306,
+        "H3": 2.492355059958192,
+        "H4": 0.70425310697072,
+        "H5": 0.17089586184191763
+      },
+      "entropy_rates_bits_per_char": {
+        "H1": 1.8884028268449,
+        "H2": 1.1857541610273141,
+        "H3": 0.4955107897450555,
+        "H4": 0.1400141652455105,
+        "H5": 0.033976195778008846
+      },
+      "tokenizer": "tokenizer_ckpts/huggingface_tokenizers_16k_c4_104/wordlevel.json"
+    },
+    "wordpiece": {
+      "num_documents": 1000.0,
+      "num_tokens": 580379.0,
+      "utf8_bytes": 2516943.0,
+      "num_chars": 2504292.0,
+      "compression_ratio": 4.3367230723372145,
+      "tokens_per_char": 0.2317537252045688,
+      "bytes_per_token": 4.3367230723372145,
+      "entropies_bits_per_token": {
+        "H1": 10.577653484157619,
+        "H2": 5.935295476304596,
+        "H3": 1.9882930815808277,
+        "H4": 0.44156433691979086,
+        "H5": 0.11028522057408331
+      },
+      "entropy_rates_bits_per_char": {
+        "H1": 2.4514105988766146,
+        "H2": 1.3755268368234155,
+        "H3": 0.46079432845482843,
+        "H4": 0.10233417999864684,
+        "H5": 0.02555901070305136
+      },
+      "tokenizer": "tokenizer_ckpts/huggingface_tokenizers_16k_c4_104/wordpiece.json"
+    }
+  }
+}

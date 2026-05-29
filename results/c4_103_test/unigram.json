@@ -1,0 +1,24 @@
+{
+  "num_documents": 100.0,
+  "num_tokens": 58271.0,
+  "utf8_bytes": 224345.0,
+  "num_chars": 223290.0,
+  "compression_ratio": 3.850028315971924,
+  "tokens_per_char": 0.2609655604818845,
+  "bytes_per_token": 3.850028315971924,
+  "entropies_bits_per_token": {
+    "H1": 9.220746329337413,
+    "H2": 4.686222780872611,
+    "H3": 1.4200058443293269,
+    "H4": 0.3104241745457837,
+    "H5": 0.0875462065856738
+  },
+  "entropy_rates_bits_per_char": {
+    "H1": 2.4062972338968174,
+    "H2": 1.2229427545533964,
+    "H3": 0.37057262105295447,
+    "H4": 0.0810100186974668,
+    "H5": 0.022846544869693213
+  },
+  "tokenizer": "tokenizer_ckpts/huggingface_tokenizers_16k_c4_103/unigram.json"
+}
