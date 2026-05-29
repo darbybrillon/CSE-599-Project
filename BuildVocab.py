@@ -35,7 +35,7 @@ def build_vocab_huggingface(vocab_size: int,
 
     return tokenizers
 
-def build_vocab_sentencepeice(vocab_size: int,
+def build_vocab_sentencepiece(vocab_size: int,
                               filename: str,
                               special_tokens: list[str],
                               model: str="bpe" # or unigram
@@ -47,19 +47,32 @@ def build_vocab_sentencepeice(vocab_size: int,
                                   user_defined_symbols=special_tokens)
     return sp.model, sp.vocab
 
-#def data_preprocessing(train_data: list[str],
-#                       path: str,
-#                       tokenizer=Whitespace) -> list[str]:
-
 
 def build_vocabs(vocab_size: int,
-                train_data: list[str],
+                train_data,
                 min_count: int,
                 special_tokens: list[str],
-                filename: str,
-                model: str="bpe"):
-    build_vocab_huggingface(vocab_size, train_data, min_count, special_tokens)
-    build_vocab_sentencepeice(vocab_size, filename, special_tokens, model)
+                filename: str) -> dict:
+    tokenizers = {}
+
+    hf_tokenizers = build_vocab_huggingface(vocab_size=vocab_size,
+                                            train_data=train_data,
+                                            min_count=min_count,
+                                            special_tokens=special_tokens)
+
+    tokenizers.update(hf_tokenizers)
+
+    tokenizers["sentencepiece_bpe"] = build_vocab_sentencepiece(vocab_size=vocab_size,
+                                                                input_file=filename,
+                                                                special_tokens=special_tokens,
+                                                                model_type="bpe")
+
+    tokenizers["sentencepiece_unigram"] = build_vocab_sentencepiece(vocab_size=vocab_size,
+                                                                    input_file=filename,
+                                                                    special_tokens=special_tokens,
+                                                                    model_type="unigram")
+
+    return tokenizers
 
 def save_tokenizers(tokenizers: dict, save_dir="./tokenizers"):
     os.makedirs(save_dir, exist_ok=True)
@@ -75,7 +88,6 @@ path = "./data/c4_106/train.jsonl"
 dataset = load_dataset("json", data_files=path)
 print(len(dataset["train"]))
 
-train_data = dataset["train"]["text"]
 
 tokenizer_dict = build_vocab_huggingface(vocab_size=16000, train_data=dataset["train"], min_count=1, special_tokens=special_tokens)
 save_tokenizers(tokenizer_dict, save_dir="./tokenizers/huggingface_tokenizers_16k_c4_106")
