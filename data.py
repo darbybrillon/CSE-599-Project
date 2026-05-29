@@ -10,7 +10,6 @@ from __future__ import annotations
 import argparse
 import json
 from dataclasses import dataclass, replace
-from itertools import islice
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Mapping, Sequence
 import unicodedata
@@ -72,9 +71,9 @@ def _require_datasets() -> tuple[Any, Any, Any, Any]:
 
 
 def normalize_text(text: str) -> str:
-    """Apply NFKC Unicode normalization."""
+    """Apply NFKC Unicode normalization and lowercase text."""
 
-    return unicodedata.normalize("NFKC", text)
+    return unicodedata.normalize("NFKC", text).lower()
 
 
 def whitespace_pretokenize(text: str) -> list[str]:
@@ -84,7 +83,7 @@ def whitespace_pretokenize(text: str) -> list[str]:
 
 
 def preprocess_text(text: str) -> dict[str, object]:
-    """Normalize, whitespace pre-tokenize, and add sentence boundary tokens."""
+    """Normalize, lowercase, whitespace pre-tokenize, and add boundary tokens."""
 
     tokens = [
         SPECIAL_TOKENS["bos_token"],
@@ -129,60 +128,156 @@ def _validate_split_ratios(split_ratios: Sequence[float]) -> tuple[float, float,
     return train_ratio / total, val_ratio / total, test_ratio / total
 
 
-def _split_counts(total_size: int, split_ratios: Sequence[float]) -> tuple[int, int, int]:
-    train_ratio, val_ratio, _ = _validate_split_ratios(split_ratios)
-    train_size = int(total_size * train_ratio)
-    val_size = int(total_size * val_ratio)
-    test_size = total_size - train_size - val_size
-    return train_size, val_size, test_size
+def _row_char_count(row: Mapping[str, object]) -> int:
+    return len(str(row["text"]))
 
 
-def _materialize_sample(
+def _tokens_to_row(tokens: Sequence[str]) -> dict[str, object]:
+    return {
+        "text": " ".join(tokens),
+        "tokens": list(tokens),
+    }
+
+
+def _take_tokens_by_chars(tokens: Sequence[str], char_budget: int) -> list[str]:
+    selected: list[str] = []
+    total_chars = 0
+    for token in tokens:
+        added_chars = len(token) if not selected else len(token) + 1
+        if selected and total_chars + added_chars > char_budget:
+            break
+        selected.append(token)
+        total_chars += added_chars
+        if total_chars >= char_budget:
+            break
+    return selected
+
+
+def _partition_tokens_by_chars(
+    tokens: Sequence[str],
+    char_targets: Sequence[int],
+) -> list[list[str]]:
+    partitions: list[list[str]] = [[] for _ in char_targets]
+    partition_index = 0
+    current_chars = 0
+
+    for token in tokens:
+        while (
+            partition_index < len(char_targets) - 1
+            and current_chars >= char_targets[partition_index]
+        ):
+            partition_index += 1
+            current_chars = 0
+
+        added_chars = len(token) if current_chars == 0 else len(token) + 1
+        partitions[partition_index].append(token)
+        current_chars += added_chars
+
+    return partitions
+
+
+def _materialize_preprocessed_sample_by_chars(
     dataset: "Dataset | IterableDataset",
-    sample_size: int | None,
+    full_dataset_chars: int,
+    text_columns: Sequence[str],
     seed: int,
     shuffle_buffer_size: int,
 ) -> "Dataset":
     Dataset, _, IterableDataset, _ = _require_datasets()
     if isinstance(dataset, IterableDataset):
-        shuffled = dataset.shuffle(seed=seed, buffer_size=shuffle_buffer_size)
-        if sample_size is None:
-            raise ValueError(
-                "full_dataset_size is required when streaming=True because streaming "
-                "datasets do not have a finite in-memory length."
-            )
-        return Dataset.from_list(list(islice(shuffled, sample_size)))
+        source = dataset.shuffle(seed=seed, buffer_size=shuffle_buffer_size)
+    else:
+        source = dataset.shuffle(seed=seed)
 
-    if sample_size is None:
-        sample_size = len(dataset)
-    if sample_size > len(dataset):
+    rows: list[dict[str, object]] = []
+    total_chars = 0
+    for example in source:
+        row = preprocess_text(_join_text_columns(example, text_columns))
+        rows.append(row)
+        total_chars += len(row["text"])
+        if total_chars >= full_dataset_chars:
+            break
+
+    if total_chars < full_dataset_chars:
         raise ValueError(
-            f"Requested full_dataset_size={sample_size}, but dataset only has "
-            f"{len(dataset)} rows."
+            f"Requested full_dataset_chars={full_dataset_chars}, but only found "
+            f"{total_chars} preprocessed characters."
         )
-    return dataset.shuffle(seed=seed).select(range(sample_size))
+
+    all_tokens = [
+        token
+        for row in rows
+        for token in row["tokens"]
+    ]
+    budgeted_tokens = _take_tokens_by_chars(all_tokens, full_dataset_chars)
+    return Dataset.from_list([_tokens_to_row(budgeted_tokens)])
 
 
-def _preprocess_dataset(dataset: "Dataset", text_columns: Sequence[str]) -> "Dataset":
-    def preprocess_example(example: Mapping[str, object]) -> dict[str, object]:
-        return preprocess_text(_join_text_columns(example, text_columns))
+def _split_sample_by_chars(
+    dataset: "Dataset",
+    split_ratios: Sequence[float],
+) -> "DatasetDict":
+    Dataset, DatasetDict, _, _ = _require_datasets()
+    train_ratio, val_ratio, test_ratio = _validate_split_ratios(split_ratios)
+    all_tokens = [
+        token
+        for row in dataset
+        for token in row["tokens"]
+    ]
+    total_chars = len(" ".join(all_tokens))
+    train_target = int(total_chars * train_ratio)
+    val_target = int(total_chars * val_ratio)
+    test_target = total_chars - train_target - val_target
+    train_tokens, val_tokens, test_tokens = _partition_tokens_by_chars(
+        all_tokens,
+        (train_target, val_target, test_target),
+    )
 
-    return dataset.map(preprocess_example, remove_columns=dataset.column_names)
+    def make_split(tokens: Sequence[str]) -> "Dataset":
+        if not tokens:
+            return Dataset.from_dict({"text": [], "tokens": []})
+        return Dataset.from_list([_tokens_to_row(tokens)])
+
+    return DatasetDict(
+        {
+            "train": make_split(train_tokens),
+            "validation": make_split(val_tokens),
+            "test": make_split(test_tokens),
+        }
+    )
 
 
-def _split_sample(
+def _split_sample_by_records(
     dataset: "Dataset",
     split_ratios: Sequence[float],
 ) -> "DatasetDict":
     _, DatasetDict, _, _ = _require_datasets()
-    train_size, val_size, test_size = _split_counts(len(dataset), split_ratios)
-    train_end = train_size
-    val_end = train_size + val_size
+    train_ratio, val_ratio, _ = _validate_split_ratios(split_ratios)
+    total_chars = sum(_row_char_count(row) for row in dataset)
+    train_target = int(total_chars * train_ratio)
+    val_target = int(total_chars * val_ratio)
+
+    train_end = 0
+    train_chars = 0
+    while train_end < len(dataset) and train_chars < train_target:
+        train_chars += _row_char_count(dataset[train_end])
+        train_end += 1
+
+    val_end = train_end
+    val_chars = 0
+    while val_end < len(dataset) and val_chars < val_target:
+        val_chars += _row_char_count(dataset[val_end])
+        val_end += 1
+
     return DatasetDict(
         {
-            "train": dataset.select(range(0, train_end)),
-            "validation": dataset.select(range(train_end, val_end)),
-            "test": dataset.select(range(val_end, val_end + test_size)),
+            "train": dataset.select(range(0, train_end)) if train_end > 0 else dataset.select([]),
+            "validation": dataset.select(range(train_end, val_end))
+            if train_end < val_end
+            else dataset.select([]),
+            "test": dataset.select(range(val_end, len(dataset)))
+            if val_end < len(dataset)
+            else dataset.select([]),
         }
     )
 
@@ -213,7 +308,7 @@ def resolve_dataset_spec(
 def load_preprocessed_dataset(
     dataset_name: str,
     *,
-    full_dataset_size: int | None,
+    full_dataset_chars: int,
     split_ratios: Sequence[float] = DEFAULT_SPLIT_RATIOS,
     seed: int = 13,
     streaming: bool = True,
@@ -227,7 +322,7 @@ def load_preprocessed_dataset(
 
     Args:
         dataset_name: One of ``c4``, ``gsm8k``, or ``codeparrot``.
-        full_dataset_size: Number of source examples to sample before splitting.
+        full_dataset_chars: Preprocessed character budget before splitting.
         split_ratios: Train/validation/test proportions. Values are normalized.
         seed: Random seed used for dataset shuffling.
         streaming: Whether to stream from Hugging Face. This is useful for C4
@@ -236,8 +331,8 @@ def load_preprocessed_dataset(
         path/config/split/text_columns: Optional overrides for the default spec.
     """
 
-    if full_dataset_size is not None and full_dataset_size <= 0:
-        raise ValueError("full_dataset_size must be positive when provided.")
+    if full_dataset_chars <= 0:
+        raise ValueError("full_dataset_chars must be positive.")
 
     _, _, _, load_dataset = _require_datasets()
     spec = resolve_dataset_spec(
@@ -254,19 +349,19 @@ def load_preprocessed_dataset(
         split=spec.split,
         streaming=streaming,
     )
-    sampled = _materialize_sample(
+    sampled = _materialize_preprocessed_sample_by_chars(
         dataset,
-        sample_size=full_dataset_size,
+        full_dataset_chars=full_dataset_chars,
+        text_columns=spec.text_columns,
         seed=seed,
         shuffle_buffer_size=shuffle_buffer_size,
     )
-    preprocessed = _preprocess_dataset(sampled, spec.text_columns)
-    return _split_sample(preprocessed, split_ratios)
+    return _split_sample_by_chars(sampled, split_ratios)
 
 
 def load_all_preprocessed_datasets(
     *,
-    full_dataset_size: int,
+    full_dataset_chars: int,
     dataset_names: Sequence[str] = tuple(DATASET_SPECS),
     split_ratios: Sequence[float] = DEFAULT_SPLIT_RATIOS,
     seed: int = 13,
@@ -278,7 +373,7 @@ def load_all_preprocessed_datasets(
     return {
         dataset_name: load_preprocessed_dataset(
             dataset_name,
-            full_dataset_size=full_dataset_size,
+            full_dataset_chars=full_dataset_chars,
             split_ratios=split_ratios,
             seed=seed,
             streaming=streaming,
@@ -320,7 +415,7 @@ def save_dataset_dict(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Prepare tokenizer evaluation datasets.")
     parser.add_argument("dataset", choices=sorted(DATASET_SPECS))
-    parser.add_argument("--full-dataset-size", type=int, required=True)
+    parser.add_argument("--full-dataset-chars", type=int, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument(
         "--format",
@@ -349,7 +444,7 @@ def main() -> None:
     args = parse_args()
     dataset = load_preprocessed_dataset(
         args.dataset,
-        full_dataset_size=args.full_dataset_size,
+        full_dataset_chars=args.full_dataset_chars,
         split_ratios=(args.train_ratio, args.val_ratio, args.test_ratio),
         seed=args.seed,
         streaming=not args.no_streaming,
