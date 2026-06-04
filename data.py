@@ -25,6 +25,11 @@ SPECIAL_TOKENS = {
     "eos_token": "</s>",
 }
 
+# Older tokenizers were trained with this end-of-sequence token before the
+# pipeline standardized on SPECIAL_TOKENS["eos_token"]. Kept so evaluation can
+# align corpus text with those legacy checkpoints.
+LEGACY_EOS_TOKEN = "<s/>"
+
 DEFAULT_SPLIT_RATIOS = (0.8, 0.1, 0.1)
 
 
