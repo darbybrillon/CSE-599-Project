@@ -48,32 +48,6 @@ def build_vocab_sentencepiece(vocab_size: int,
     return sp.model, sp.vocab
 
 
-def build_vocabs(vocab_size: int,
-                train_data,
-                min_count: int,
-                special_tokens: list[str],
-                filename: str) -> dict:
-    tokenizers = {}
-
-    hf_tokenizers = build_vocab_huggingface(vocab_size=vocab_size,
-                                            train_data=train_data,
-                                            min_count=min_count,
-                                            special_tokens=special_tokens)
-
-    tokenizers.update(hf_tokenizers)
-
-    tokenizers["sentencepiece_bpe"] = build_vocab_sentencepiece(vocab_size=vocab_size,
-                                                                input_file=filename,
-                                                                special_tokens=special_tokens,
-                                                                model_type="bpe")
-
-    tokenizers["sentencepiece_unigram"] = build_vocab_sentencepiece(vocab_size=vocab_size,
-                                                                    input_file=filename,
-                                                                    special_tokens=special_tokens,
-                                                                    model_type="unigram")
-
-    return tokenizers
-
 def save_tokenizers(tokenizers: dict, save_dir="./tokenizers"):
     os.makedirs(save_dir, exist_ok=True)
     for name, tokenizer in tokenizers.items():
@@ -81,13 +55,36 @@ def save_tokenizers(tokenizers: dict, save_dir="./tokenizers"):
         tokenizer.save(tokenizer_path)
         tokenizer.model.save(save_dir, name)
 
-
 special_tokens = ["<UNK>", "<PAD>", "<s>", "<s/>"]
 path = "./data/c4_106/train.jsonl"
 
 dataset = load_dataset("json", data_files=path)
 print(len(dataset["train"]))
 
+def train(datasets: list[str],
+          min_count: int,
+          special_tokens: list[str],
+          vocab_sizes: list[int]) -> dict:
 
-tokenizer_dict = build_vocab_huggingface(vocab_size=16000, train_data=dataset["train"], min_count=1, special_tokens=special_tokens)
-save_tokenizers(tokenizer_dict, save_dir="./tokenizers/huggingface_tokenizers_16k_c4_106")
+    nested_tokenizer_dict = {}
+    for vocab_size in vocab_sizes:
+        for set in datasets:
+            path = f"./data/{set}/train.jsonl"
+            dataset = load_dataset("json", data_files=path)
+            tokenizer_dict = build_vocab_huggingface(vocab_size=vocab_size,
+                                                     train_data=dataset["train"],
+                                                     min_count=min_count,
+                                                     special_tokens=special_tokens)
+            save_tokenizers(tokenizer_dict, save_dir=f"./tokenizers/huggingface_tokenizers_{vocab_size}_{set}")
+            nested_tokenizer_dict[f"{vocab_size}-{set}"] = tokenizer_dict
+    return nested_tokenizer_dict
+
+#tokenizer_dict = build_vocab_huggingface(vocab_size=16000, train_data=dataset["train"], min_count=1, special_tokens=special_tokens)
+#save_tokenizers(tokenizer_dict, save_dir="./tokenizers/huggingface_tokenizers_16k_c4_106")
+
+#datasets = ["c4_103","c4_104","c4_105","c4_106","c4_107","c4_108"]
+#datasets = ["codeparrot_103","codeparrot_104","codeparrot_105","codeparrot_106","codeparrot_107","codeparrot_108"]
+datasets = ["gsm8k_103","gsm8k_104","gsm8k_105","gsm8k_106"]
+
+vocab_sizes = [16000, 64000]
+tkn_dict = train(datasets, 1, special_tokens, vocab_sizes)

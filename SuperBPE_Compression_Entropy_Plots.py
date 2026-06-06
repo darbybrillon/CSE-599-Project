@@ -13,20 +13,24 @@ ROOT = Path.cwd()
 if not (ROOT / "evaluate.py").exists():
     ROOT = ROOT / "CSE-599-Project"
 
-TEST_CORPUS = ROOT / "data/c4_107/test.jsonl"
+dataset = "gsm8k"
+vocab_size = 64000
 
 
-STANDARD_PATTERN = "huggingface_tokenizers_16000_c4_*"
+TEST_CORPUS = ROOT / f"data/{dataset}_106/test.jsonl"
 
-SUPERBPE_PATTERN = "16000_c4_*"
+
+STANDARD_PATTERN = f"huggingface_tokenizers_64000_{dataset}_*"
+
+SUPERBPE_PATTERN = f"{vocab_size}_{dataset}_*"
 
 FAMILIES = ["bpe", "unigram", "wordpiece", "wordlevel"]
 COLORS   = {"bpe": "C0", "unigram": "C1", "wordpiece": "C2", "wordlevel": "C3"}
 MARKERS  = {"bpe": "o",  "unigram": "s",  "wordpiece": "^",  "wordlevel": "D"}
 
 TOKENIZER_DIRS = {
-    "standard": Path(r"C:\Users\darby\Downloads\CSE 599\Project\tokenizers\c4"),
-    "superbpe": Path(r"C:\Users\darby\Downloads\CSE 599\Project\SuperBPE Tokenizers\c4"),
+    "standard": Path(fr"C:\Users\darby\Downloads\CSE 599\Project\tokenizers\{dataset}"),
+    "superbpe": Path(fr"C:\Users\darby\Downloads\CSE 599\Project\SuperBPE Tokenizers\{dataset}"),
 }
 SOURCE_LINESTYLES = {"standard": "-",  "superbpe": "-"}
 SOURCE_LABELS     = {"standard": "Standard", "superbpe": "SuperBPE"}
@@ -36,7 +40,7 @@ SOURCE_LABELS     = {"standard": "Standard", "superbpe": "SuperBPE"}
 # Helpers
 
 def train_chars_for_scale(scale: str) -> int | None:
-    train_path = ROOT / f"data/c4_{scale}/train.jsonl"
+    train_path = ROOT / f"data/{dataset}_{scale}/train.jsonl"
     if not train_path.exists():
         return None
     return sum(len(json.loads(line)["text"]) for line in train_path.open(encoding="utf-8"))
@@ -45,9 +49,9 @@ def train_chars_for_scale(scale: str) -> int | None:
 def _scale_from_dir(tokenizer_dir: Path, source: str) -> str:
     name = tokenizer_dir.name
     if source == "superbpe":
-        m = re.search(r"_c4_(.+)$", name)
+        m = re.search(fr"_{dataset}_(.+)$", name)
     else:
-        m = re.search(r"_c4_(.+)$", name)
+        m = re.search(fr"_{dataset}_(.+)$", name)
     return m.group(1) if m else name
 
 
@@ -70,7 +74,7 @@ def _evaluate_superbpe_dir(tokenizer_dir: Path, texts: list[str]) -> dict:
 
 
 def ensure_summary_standard(tokenizer_dir: Path, test_path: Path, scale: str) -> Path:
-    result_dir = ROOT / "results" / f"c4_{scale}_test_standard"
+    result_dir = ROOT / "results" / f"{dataset}_{scale}_test_standard"
     summary_path = result_dir / "summary.json"
     if summary_path.exists():
         return summary_path
@@ -88,7 +92,7 @@ def ensure_summary_standard(tokenizer_dir: Path, test_path: Path, scale: str) ->
 
 
 def ensure_summary_superbpe(tokenizer_dir: Path, test_path: Path, scale: str) -> Path:
-    result_dir = ROOT / "results" / f"c4_{scale}_test_superbpe"
+    result_dir = ROOT / "results" / f"{dataset}_{scale}_test_superbpe"
     summary_path = result_dir / "summary.json"
     if summary_path.exists():
         return summary_path
@@ -244,6 +248,7 @@ def plot_compression_ratio(df: pd.DataFrame) -> None:
     ax.legend(fontsize=8, ncol=2)
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
+
 
 
 plot_compression_ratio(df)

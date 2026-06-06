@@ -92,6 +92,9 @@ def discover_tokenizer_paths(tokenizer_arg: Path) -> dict[str, Path]:
         if candidate.is_file():
             discovered[candidate.stem] = candidate
     if not discovered:
+        superbpe_candidate = tokenizer_arg / "tokenizer.json"
+        if superbpe_candidate.is_file():
+            return {"superbpe": superbpe_candidate}
         json_files = sorted(tokenizer_arg.glob("*.json"))
         if len(json_files) == 1:
             path = json_files[0]
