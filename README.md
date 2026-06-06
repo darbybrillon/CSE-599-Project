@@ -1,7 +1,8 @@
 # Entropy & Compression Based Evaluation on LLM Tokenizers
 
 This repository evaluates how tokenizer training scale, tokenizer family, and
-training/test-domain mismatch affect compression and empirical k-gram entropy.
+training/test-domain mismatch affect compression and empirical k-gram entropy. [View the Full Technical Report](./Entropy-Eval.pdf).
+
 The core pipeline is:
 
 1. sample and preprocess datasets from Hugging Face,
